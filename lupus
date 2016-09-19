@@ -1,0 +1,270 @@
+<?php
+
+error_reporting(1);
+
+require_once "loader.php";
+
+unset($argv[0]);
+$arguments = $argv;
+
+$class     = explode(":", $arguments[1])[0];
+$method    = explode(":", $arguments[1])[1];
+$parameter = array();
+
+if (isset($arguments[2])) $parameter[] = $arguments[2];
+if (isset($arguments[3])) $parameter[] = $arguments[3];
+if (isset($arguments[4])) $parameter[] = $arguments[4];
+
+if (isset($class) && isset($method)) $class::{$method}($parameter);
+else help::index();
+
+
+class help
+{
+	public static function index()
+	{
+		$output  = " \n Generate things:\n\n"
+	  . " generate:model\t\tGenerates a basic model without methods\n"
+	  . " generate:view\t\tGenerates a view folder with CRUD structure\n"
+	  . " generate:controller\tGenerates a RESTful controller\n"
+	  . " generate:migration\tGenerates a migration with migrate() and undo() methods\n"
+	  . " generate:seeder\tGenerates a seeder without values\n"
+	  . " generate:language\tGenerates a language file\n"
+	  . " generate:scaffold\tGenerates all these things at once\n"
+	  . " \n"
+
+	  . " \n Migrate stuff:\n\n"
+	  . " migrate:all\t\tExecutes all migrations\n"
+	  . " migrate:one\t\tExecutes a specific migration you call\n"
+	  . " migrate:rollback\tUndoes all migrations\n"
+	  . " migrate:undo\t\tUndoes a specific migration you call\n"
+	  . " \n"
+	  
+	  . " \n Seed it:\n\n"
+	  . " seed:all\t\tExecutes all seeders\n"
+	  . " seed:one\t\tExecutes a specific seeder you call\n"
+	  . " \n";
+
+		echo $output;
+	}
+}
+
+class generate
+{
+	public static function model($arg)
+	{
+		if (empty($arg[0])) die("\nYou need to leave a name\n\n");
+
+		$name  	   = strtolower($arg[0]);
+		$file      = "app/models/". rtrim($name, "_") ."_model.php";
+		$handle    = fopen($file, "w") or die("Cannot create file:  ". $file);
+		$modelname = ucfirst($name);
+		$content   = "<?php\n\nclass $modelname extends BaseModel\n{\n\t\n}";
+		$write     = fwrite($handle, $content);
+		$close     = fclose($handle);
+
+		if ($write) echo "\n The model '$modelname' has been created in: $file\n\n";
+		else 		echo "\n Couldn't create the model '$modelname'\n\n";
+	}
+
+	public static function controller($arg)
+	{
+		if (empty($arg[0])) die("\nYou need to leave a name\n\n");
+
+		$name			= strtolower($arg[0]);
+		$file 			= "app/controllers/". $name ."_controller.php";
+		$handle 		= fopen($file, "w") or die("Cannot create file:  ". $file);
+		$controllername = ucfirst($name) ."Controller";
+		$content 		= "<?php\n\nclass $controllername\n{\n"
+						. "\tfunction index()\n\t{\n\t\t\n\t}\n\n"
+						. "\tfunction create()\n\t{\n\t\t\n\t}\n\n"
+						. "\tfunction store()\n\t{\n\t\t\n\t}\n\n"
+						. "\tfunction show(\$id)\n\t{\n\t\t\n\t}\n\n"
+						. "\tfunction edit(\$id)\n\t{\n\t\t\n\t}\n\n"
+						. "\tfunction update(\$id)\n\t{\n\t\t\n\t}\n\n"
+						. "\tfunction delete(\$id)\n\t{\n\t\t\n\t}\n"
+						. "}";
+		$write 			= fwrite($handle, $content);
+		$close			= fclose($handle);
+
+		if ($write) echo "\n The controller '$controllername' has been created in: $file\n\n";
+		else 		echo "\n Couldn't create the controller '$controllername'\n\n";
+	}
+
+	public static function view($arg)
+	{
+		if (empty($arg[0])) die("\nYou need to leave a name\n\n");
+
+		$directoryname = strtolower($arg[0]);
+		$directory 	   = "app/views/". $directoryname ."/";
+		$handle 	   = mkdir($directory) or die("Cannot create directory:  ". $directory);
+		$files 		   = array("index" 	=> $directory ."index.jade",
+							   "show" 	=> $directory ."show.jade",
+							   "create" => $directory ."create.jade",
+							   "edit" 	=> $directory ."edit.jade");
+
+		$create_index  = fopen($files["index"],  "w") or die("Cannot create file:  ". $files["index"]);
+		$create_show   = fopen($files["show"],   "w") or die("Cannot create file:  ". $files["show"]);
+		$create_create = fopen($files["create"], "w") or die("Cannot create file:  ". $files["create"]);
+		$create_edit   = fopen($files["edit"],   "w") or die("Cannot create file:  ". $files["edit"]);
+
+		foreach($files as $file)
+		{
+			$content = "doctype 5\nhtml\n\thead\n\t\t- View::component('head')\n\t
+			body\n\t\t";
+			$handle  = fopen($file, "w") or die("Cannot create file:  ". $file);
+			$write 	 = fwrite($handle, $content);
+			$close	 = fclose($handle);
+		}
+
+		if ($handle) echo "\n The view '$directoryname' has been created: $directory\n\n";
+		else echo "\n Couldn't create the view '$directoryname'\n\n";
+	}
+
+	public static function migration($arg)
+	{
+		if (empty($arg[0])) die("\nYou need to leave a name\n\n");
+		if (empty($arg[1])) die("\nYou need to leave the field parameter: fields=\"fieldname:type, ...\" \n\n");
+
+		$name			= strtolower($arg[0]);
+		$file 			= "database/migrations/". rtrim($name, "_") ."_migration.php";
+		$handle 		= fopen($file, "w") or die("Cannot create file:  ". $file);
+		$modelname		= ucfirst($name);
+		$migrationname  = $modelname ."Migration";
+
+		if (isset($arg[1]))
+		{
+			$fields = str_replace("fields=", "", $arg[1]);
+			$fields = str_replace('&quota;', "'", $fields);
+			$fields = str_replace(", ", '", "', $fields);
+		}
+
+		$content = "<?php\n\nclass $migrationname\n{\n"
+				 . "\tpublic function migrate()\n\t{\n\t\tDatabase::create(\"$name\", array(\"$fields\"));\n\t}\n\n"
+				 . "\tpublic function undo()\n\t{\n\t\tDatabase::drop(\"$name\");\n\t}\n"
+				 . "}";
+		$write 	 = fwrite($handle, $content);
+		$close	 = fclose($handle);
+
+		if ($write) echo "\n The migration '$migrationname' has been created in: $file\n\n";
+		else 		echo "\n Couldn't create the migration '$migrationname'\n\n";	
+	}
+
+	public static function seeder($arg)
+	{
+		if (empty($arg[0])) die("\nYou need to leave a name\n\n");
+
+		$name		= strtolower($arg[0]);
+		$file 		= "database/seeders/". rtrim($name, "_") ."_seeder.php";
+		$handle 	= fopen($file, "w") or die("Cannot create file:  ". $file);
+		$modelname 	= ucfirst($name);
+		$seedername = $modelname ."Seeder";
+		$content	= "<?php\n\nclass $seedername\n{\n"
+					. "\tpublic function seed()\n\t{\n\t\t//$modelname::insert(array());\n\t}\n\n"
+					. "\tpublic function unseed()\n\t{\n\t\t//$modelname::delete(\$id)\n\t}\n"
+					. "}";
+		$write 		= fwrite($handle, $content);
+		$close		= fclose($handle);
+
+		if ($write) echo "\n The seeder '$seedername' has been created in: $file\n\n";
+		else 		echo "\n Couldn't create the seeder '$seedername'\n\n";
+	}
+
+	public static function language($arg)
+	{
+		if (empty($arg[0])) die("\nYou need to leave a name\n\n");
+
+		$name  	      = strtolower($arg[0]);
+		$languagename = ucfirst($name);
+		$file         = "app/languages/". $name .".json";
+		$handle       = fopen($file, "w") or die("Cannot create file:  ". $file);
+
+		echo "\n The language '$languagename' has been created in: $file\n\n";
+	}
+
+	public static function scaffold($arg)
+	{
+		if (empty($arg[0])) die("\nYou need to leave a name\n\n");
+		if (empty($arg[1])) die("\nYou need to leave the field parameter: fields=\"fieldname:type, ...\" \n\n");
+
+		$singular = rtrim($arg[0], "s");
+		$plural   = $arg[0] ."s";
+
+		generate::model($singular);
+		generate::controller($plural);
+		generate::view($plural);
+		generate::migration($plural);
+		generate::seeder($plural);
+	}
+}
+
+class migrate
+{
+	public static function all()
+	{
+		$migrations = array_slice(scandir("database/migrations/"), 2);
+
+		foreach($migrations as $migration)
+		{
+			require_once "database/migrations/". $migration;
+
+			$db_name = explode("_", $migration)[0];
+			$model   = ucfirst($db_name) ."Migration";
+
+			$model::migrate();
+		}
+	}
+
+	public static function one($arg)
+	{
+		require_once "database/migrations/". $arg[0] ."_migration.php";
+
+		if (empty($arg[0])) die("\nYou need to leave a name\n\n");
+
+		$model = ucfirst($arg[0]) ."Migration";
+
+		$model::migrate();
+	}
+
+	public static function rollback()
+	{
+		$migrations = array_slice(scandir("database/migrations/"), 2);
+
+		foreach($migrations as $migration)
+		{
+			require_once "database/migrations/". $migration;
+
+			$db_name = explode("_", $migration)[0];
+			$model   = ucfirst($db_name) ."Migration";
+
+			$model::undo();
+		}
+	}
+
+	public static function undo($arg)
+	{
+		require_once "database/migrations/". $arg[0] ."_migration.php";
+
+		if (empty($arg[0])) die("\nYou need to leave a name\n\n");
+
+		$model = ucfirst($arg[0]) ."Migration";
+
+		$model::undo();
+	}
+
+}
+
+class server
+{
+	public static function start($arg)
+	{
+		if(isset($arg[0])) $port = $arg[0];
+		else 			   $port = 80;
+
+		$cmd = shell_exec("sudo php -S localhost:3000");
+
+		echo $cmd;
+	}
+}
+
+?>
